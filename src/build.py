@@ -1,5 +1,8 @@
 import re, json, os, urllib.parse
 from strings import S
+from strings_keu import K
+assert not set(S) & set(K), set(S) & set(K)
+S.update(K)
 OUT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LANGS = ["id", "en", "zh"]
 WA = "https://wa.me/62811392146"
@@ -29,8 +32,11 @@ def p(n, extra=""):  # price span
 
 def header(page):
     if page == "index":
-        nav = [("#layanan","nav_services"),("#cara-kerja","nav_how"),("#tim","nav_team"),("sosmed.html","nav_sosmed")]
+        nav = [("#layanan","nav_services"),("#cara-kerja","nav_how"),("#tim","nav_team"),("keuangan.html","nav_keu"),("sosmed.html","nav_sosmed")]
         wak = "wa_general"
+    elif page == "keuangan":
+        nav = [("#layanan-keuangan","k_nav_svc"),("#paket","k_nav_pkg"),("#faq","k_nav_faq"),("index.html","nav_home")]
+        wak = "wa_keu"
     else:
         nav = [("#paket","get_k"),("#bonus","nav_bonus"),("#hemat","nav_compare"),("index.html","nav_home")]
         wak = "wa_sosmed"
@@ -44,7 +50,8 @@ def header(page):
 </div></header>'''
 
 def footer(page, wak):
-    other = '<li><a href="sosmed.html" data-i18n="nav_sosmed"></a></li>' if page=="index" else '<li><a href="index.html" data-i18n="nav_home"></a></li>'
+    pages = [("index.html","nav_home"),("keuangan.html","nav_keu"),("sosmed.html","nav_sosmed")]
+    other = "".join(f'<li><a href="{h}" data-i18n="{k}"></a></li>' for h, k in pages if h != page + ".html")
     return f'''<footer class="ft"><div class="wrap">
 <div><img src="assets/logo_white.webp" width="400" height="108" loading="lazy" data-i18n-attr="alt:logo_alt" alt=""><p data-i18n="ft_about"></p><p><b>PT. Boffice Global Ventura</b><br><span data-i18n="tagline"></span></p></div>
 <div><h4 data-i18n="ft_loc"></h4><ul><li data-i18n="loc1"></li><li data-i18n="loc2"></li><li data-i18n="loc3"></li></ul></div>
@@ -58,19 +65,21 @@ def steps():
     return "<ol class=\"steps\">" + "".join(f'<li><h3 data-i18n="step{i}_h"></h3><p data-i18n="step{i}_p"></p></li>' for i in range(1,5)) + "</ol>"
 
 def page(name, body_html):
-    pre = "index" if name == "index" else "sos"
-    wak = "wa_general" if name == "index" else "wa_sosmed"
+    pre = {"index":"index","sosmed":"sos","keuangan":"keu"}[name]
+    wak = {"index":"wa_general","sosmed":"wa_sosmed","keuangan":"wa_keu"}[name]
+    path = "" if name == "index" else name + ".html"
+    hero = {"index":"office","sosmed":"lounge","keuangan":"meeting"}[name]
     html = f'''<!doctype html>
 <html lang="id"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title data-i18n-title="{pre}_title"></title>
 <meta name="description" content="" data-i18n-meta="{pre}_desc">
 <meta property="og:title" content="" data-i18n-meta="{pre}_title"><meta property="og:description" content="" data-i18n-meta="{pre}_desc">
-<meta property="og:type" content="website"><meta property="og:url" content="https://boffice.co.id/{'' if name=='index' else 'sosmed.html'}">
+<meta property="og:type" content="website"><meta property="og:url" content="https://boffice.co.id/{path}">
 <meta property="og:image" content="https://boffice.co.id/assets/office.webp"><meta name="theme-color" content="#0B1736">
-<link rel="canonical" href="https://boffice.co.id/{'' if name=='index' else 'sosmed.html'}">
+<link rel="canonical" href="https://boffice.co.id/{path}">
 <link rel="icon" href="assets/favicon.webp" type="image/webp">
-<link rel="preload" as="image" href="assets/{'office' if name=='index' else 'lounge'}.webp">
+<link rel="preload" as="image" href="assets/{hero}.webp">
 <link rel="stylesheet" href="assets/styles.css">
 <script src="assets/i18n.js" defer></script>
 <script type="application/ld+json">{json.dumps({"@context":"https://schema.org","@type":"LocalBusiness","name":"BOffice","legalName":"PT. Boffice Global Ventura","slogan":"All in One Business Solutions","url":"https://boffice.co.id/","telephone":"+62811392146","image":"https://boffice.co.id/assets/office.webp","address":[{"@type":"PostalAddress","streetAddress":"Jl. Diponegoro 222","addressLocality":"Denpasar","addressRegion":"Bali","addressCountry":"ID"},{"@type":"PostalAddress","streetAddress":"Jl. Matahari Terbit 18, Sanur","addressLocality":"Denpasar","addressRegion":"Bali","addressCountry":"ID"},{"@type":"PostalAddress","streetAddress":"Jl. Dewi Sartika No. 2, Kuta","addressLocality":"Badung","addressRegion":"Bali","addressCountry":"ID"}]}, ensure_ascii=False)}</script>
@@ -179,7 +188,7 @@ INDEX = f'''
 <li><span data-i18n="fn4"></span><b>{p(500000)}</b></li>
 <li><span data-i18n="fn5"></span><b>{p(500000)}</b></li>
 <li><span data-i18n="fn6"></span><b>{p(500000)}</b></li>
-</ul>{wa("wa_fin","fn_cta")}</div>
+</ul>{wa("wa_fin","fn_cta")}<p style="margin:14px 0 0"><a href="keuangan.html" style="font-weight:700" data-i18n="fn_more"></a></p></div>
 <div class="vs">
 <div class="card bad"><h3 data-i18n="fn_vs_bad"></h3><p data-i18n="fn_vs_bad_p"></p></div>
 <div class="vsx" data-i18n="vs"></div>
@@ -298,7 +307,9 @@ SOS = f'''
 </div></section>
 '''
 
-used = page("index", INDEX) | page("sosmed", SOS)
+from keu_page import build_keu
+KEU = build_keu(wa, p)
+used = page("index", INDEX) | page("sosmed", SOS) | page("keuangan", KEU)
 missing = used - set(T); assert not missing, missing
 
 JS = '''/* BOffice i18n — id / en / zh. Auto-detects browser language; override saved in localStorage "boffice_lang". */
